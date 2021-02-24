@@ -152,14 +152,10 @@ public:
     DRW_Coord():x(0), y(0),z(0) {}
     DRW_Coord(double ix, double iy, double iz): x(ix), y(iy),z(iz){}
 
-     DRW_Coord& operator = (const DRW_Coord& data) {
-        x = data.x;  y = data.y;  z = data.z;
-        return *this;
-    }
 /*!< convert to unitary vector */
     void unitize(){
         double dist;
-		dist = hypot(hypot(x, y), z);
+        dist = hypot(hypot(x, y), z);
         if (dist > 0.0) {
             x= x/dist;
             y= y/dist;
@@ -273,11 +269,8 @@ private:
 */
 class dwgHandle{
 public:
-    dwgHandle(){
-        code=0;
-        size=0;
-        ref=0;
-    }
+    dwgHandle(): code(0), size(0), ref(0){}
+
     ~dwgHandle(){}
     duint8 code;
     duint8 size;

@@ -1177,12 +1177,12 @@ void Doc_plugin_interface::setCurrentLayerProperties(int c, QString const& w,
     }
 }
 
-bool Doc_plugin_interface::getPoint(QPointF *point, const QString& mesage,
+bool Doc_plugin_interface::getPoint(QPointF *point, const QString& message,
 									QPointF *base){
     bool status = false;
     QC_ActionGetPoint* a = new QC_ActionGetPoint(*doc, *gView);
     if (a) {
-        if (!(mesage.isEmpty()) ) a->setMesage(mesage);
+        if (!(message.isEmpty()) ) a->setMessage(message);
         gView->killAllActions();
         gView->setCurrentAction(a);
         if (base) a->setBasepoint(base);
@@ -1203,11 +1203,11 @@ bool Doc_plugin_interface::getPoint(QPointF *point, const QString& mesage,
     return status;
 }
 
-Plug_Entity *Doc_plugin_interface::getEnt(const QString& mesage){
+Plug_Entity *Doc_plugin_interface::getEnt(const QString& message){
     QC_ActionGetEnt* a = new QC_ActionGetEnt(*doc, *gView);
     if (a) {
-        if (!(mesage.isEmpty()) )
-            a->setMesage(mesage);
+        if (!(message.isEmpty()) )
+            a->setMessage(message);
         gView->killAllActions();
         gView->setCurrentAction(a);
         QEventLoop ev;
@@ -1217,20 +1217,19 @@ Plug_Entity *Doc_plugin_interface::getEnt(const QString& mesage){
             if (!gView->getEventHandler()->hasAction())
                 break;
         }
-        // qDebug() << "getEnt: passed event loop";
     }
     Plug_Entity *e = reinterpret_cast<Plug_Entity*>(a->getSelected(this));
-    // qDebug() << e;
+    a->finish();
     gView->killAllActions();
     return e;
 }
 
-bool Doc_plugin_interface::getSelect(QList<Plug_Entity *> *sel, const QString& mesage){
+bool Doc_plugin_interface::getSelect(QList<Plug_Entity *> *sel, const QString& message){
     bool status = false;
     QC_ActionGetSelect* a = new QC_ActionGetSelect(*doc, *gView);
     if (a) {
-        if (!(mesage.isEmpty()) )
-            a->setMesage(mesage);
+        if (!(message.isEmpty()) )
+            a->setMessage(message);
         gView->killAllActions();
         gView->setCurrentAction(a);
         QEventLoop ev;
@@ -1295,13 +1294,13 @@ bool Doc_plugin_interface::addVariable(const QString& key, double value, int cod
    return true;
 }
 
-bool Doc_plugin_interface::getInt(int *num, const QString& mesage, const QString& title){
+bool Doc_plugin_interface::getInt(int *num, const QString& message, const QString& title){
     bool ok;
     QString msg, tit;
-    if ( mesage.isEmpty() )
+    if ( message.isEmpty() )
         msg = QObject::tr("enter an integer number");
     else
-        msg = mesage;
+        msg = message;
     if ( title.isEmpty() )
         tit = QObject::tr("LibreCAD query");
     else
@@ -1313,13 +1312,13 @@ bool Doc_plugin_interface::getInt(int *num, const QString& mesage, const QString
         *num = data;
     return ok;
 }
-bool Doc_plugin_interface::getReal(qreal *num, const QString& mesage, const QString& title){
+bool Doc_plugin_interface::getReal(qreal *num, const QString& message, const QString& title){
     bool ok;
     QString msg, tit;
-    if ( mesage.isEmpty() )
+    if ( message.isEmpty() )
         msg = QObject::tr("enter a number");
     else
-        msg = mesage;
+        msg = message;
     if ( title.isEmpty() )
         tit = QObject::tr("LibreCAD query");
     else
@@ -1330,13 +1329,13 @@ bool Doc_plugin_interface::getReal(qreal *num, const QString& mesage, const QStr
         *num = data;
     return ok;
 }
-bool Doc_plugin_interface::getString(QString *txt, const QString& mesage, const QString& title){
+bool Doc_plugin_interface::getString(QString *txt, const QString& message, const QString& title){
     bool ok;
     QString msg, tit;
-    if ( mesage.isEmpty() )
+    if ( message.isEmpty() )
         msg = QObject::tr("enter text");
     else
-        msg = mesage;
+        msg = message;
     if ( title.isEmpty() )
         tit = QObject::tr("LibreCAD query");
     else

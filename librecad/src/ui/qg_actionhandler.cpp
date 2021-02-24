@@ -167,6 +167,7 @@
 #include "qg_snaptoolbar.h"
 #include "rs_debug.h"
 #include "rs_layer.h"
+#include "rs_settings.h"
 
 /**
  * Constructor
@@ -298,7 +299,12 @@ RS_ActionInterface* QG_ActionHandler::setCurrentAction(RS2::ActionType id) {
         break;
     case RS2::ActionOrderBottom:
         orderType = RS2::ActionOrderBottom;
-        a = new RS_ActionSelect(this, *document, *view, RS2::ActionOrderNoSelect);
+        if(!document->countSelected()){
+            a = new RS_ActionSelect(this, *document, *view, RS2::ActionOrderNoSelect);
+        }
+        else {
+            a = new RS_ActionOrder(*document, *view, orderType);
+        }
         break;
     case RS2::ActionOrderLower:
         orderType = RS2::ActionOrderLower;
@@ -309,12 +315,14 @@ RS_ActionInterface* QG_ActionHandler::setCurrentAction(RS2::ActionType id) {
         a = new RS_ActionSelect(this, *document, *view, RS2::ActionOrderNoSelect);
         break;
     case RS2::ActionOrderTop:
-		if(!document->countSelected()){
-			orderType = RS2::ActionOrderTop;
-			a = new RS_ActionSelect(this, *document, *view, RS2::ActionOrderNoSelect);
-			break;
-		}
-        // fall-through
+        orderType = RS2::ActionOrderTop;
+        if(!document->countSelected()){
+            a = new RS_ActionSelect(this, *document, *view, RS2::ActionOrderNoSelect);
+        }
+        else {
+            a = new RS_ActionOrder(*document, *view, orderType);
+        }
+        break;
     case RS2::ActionOrderNoSelect:
         a = new RS_ActionOrder(*document, *view, orderType);
         break;
@@ -1114,7 +1122,8 @@ bool QG_ActionHandler::command(const QString& cmd)
 
     if (cmd.isEmpty())
     {
-        slotSnapFree();
+		if (RS_SETTINGS->readNumEntry("/Keyboard/ToggleFreeSnapOnSpace", true))
+			slotSnapFree();
         return true;
     }
 

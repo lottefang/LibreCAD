@@ -63,11 +63,11 @@ class LC_PenWizard;
 
 struct DockAreas
 {
-    QAction* left;
-    QAction* right;
-    QAction* top;
-    QAction* bottom;
-    QAction* floating;
+    QAction* left {nullptr};
+    QAction* right {nullptr};
+    QAction* top {nullptr};
+    QAction* bottom {nullptr};
+    QAction* floating {nullptr};
 };
 
 /**
@@ -97,7 +97,7 @@ public:
     bool eventFilter(QObject *obj, QEvent *event) override;
 
     QMap<QString, QAction*> a_map;
-    LC_ActionGroupManager* ag_manager;
+    LC_ActionGroupManager* ag_manager {nullptr};
 
 public slots:
     void relayAction(QAction* q_action);
@@ -116,6 +116,15 @@ public slots:
     void slotTile();
     void slotTileHorizontal();
     void slotTileVertical();
+	void slotSetMaximized();
+
+	void slotTabShapeRounded();
+	void slotTabShapeTriangular();
+	void slotTabPositionNorth();
+	void slotTabPositionSouth();
+	void slotTabPositionEast();
+	void slotTabPositionWest();
+
     void slotToggleTab();
     void slotZoomAuto();
 
@@ -142,14 +151,22 @@ public slots:
     void slotFileSave();
     /** saves a document under a different filename*/
     void slotFileSaveAs();
+	/** saves all open documents; return false == operation cancelled **/
+	bool slotFileSaveAll();
     /** auto-save document */
     void slotFileAutoSave();
     /** exports the document as bitmap */
     void slotFileExport();
-    bool slotFileExport(const QString& name, const QString& format,
-                QSize size, QSize borders, bool black, bool bw=true);
+    bool slotFileExport(const QString& name,
+                        const QString& format,
+                        QSize size,
+                        QSize borders,
+                        bool black,
+                        bool bw=true);
     /** closing the current file */
     void slotFileClosing(QC_MDIWindow*);
+	/** close all files; return false == operation cancelled */
+	bool slotFileCloseAll();
     /** prints the current file */
     void slotFilePrint(bool printPDF=false);
     void slotFilePrintPDF();
@@ -259,7 +276,7 @@ public:
     /**
      * Creates a new document. Implementation from RS_MainWindowInterface.
      */
-	void createNewDocument(const QString& fileName = QString::null, RS_Document* doc=nullptr);
+	void createNewDocument(const QString& fileName = QString(), RS_Document* doc=nullptr);
 
     void redrawAll();
     void updateGrids();
@@ -279,6 +296,11 @@ public:
         return snapToolBar;
     }
 
+    /**
+     * Find opened window for specified document.
+     */
+    QC_MDIWindow* getWindowWithDoc(const RS_Document* doc);
+
 protected:
     void closeEvent(QCloseEvent*) override;
     //! \{ accept drop files to open
@@ -294,6 +316,14 @@ private:
     QString format_filename_caption(const QString &qstring_in);
     /** Helper function for Menu file -> New & New.... */
 	bool slotFileNewHelper(QString fileName, QC_MDIWindow* w = nullptr);
+	// more helpers
+	void doArrangeWindows(RS2::SubWindowMode mode, bool actuallyDont = false);
+	void setTabLayout(RS2::TabShape s, RS2::TabPosition p);
+	bool doSave(QC_MDIWindow* w, bool forceSaveAs = false);
+	void doClose(QC_MDIWindow* w, bool activateNext = true);
+	void doActivate(QMdiSubWindow* w);
+	int showCloseDialog(QC_MDIWindow* w, bool showSaveAll = false);
+	void enableFileActions(QC_MDIWindow* w);
 
     /**
      * @brief updateWindowTitle, for draft mode, add "Draft Mode" to window title
@@ -306,72 +336,72 @@ private:
     QMenu *findMenu(const QString &searchMenu, const QObjectList thisMenuList, const QString& currentEntry);
 
     #ifdef LC_DEBUGGING
-        LC_SimpleTests* m_pSimpleTest;
+        LC_SimpleTests* m_pSimpleTest {nullptr};
     #endif
 
     /** Pointer to the application window (this). */
     static QC_ApplicationWindow* appWindow;
-    QTimer *autosaveTimer;
+    QTimer *autosaveTimer {nullptr};
 
-    QG_ActionHandler* actionHandler;
+    QG_ActionHandler* actionHandler {nullptr};
 
     /** MdiArea for MDI */
-    QMdiArea* mdiAreaCAD{nullptr};
-    QMdiSubWindow* activedMdiSubWindow;
-    QMdiSubWindow* current_subwindow;
+    QMdiArea* mdiAreaCAD {nullptr};
+    QMdiSubWindow* activedMdiSubWindow {nullptr};
+    QMdiSubWindow* current_subwindow {nullptr};
 
 
     /** Dialog factory */
-    QC_DialogFactory* dialogFactory;
+    QC_DialogFactory* dialogFactory {nullptr};
 
     /** Recent files list */
-	QG_RecentFiles* recentFiles;
+    QG_RecentFiles* recentFiles {nullptr};
 
     // --- Dockwidgets ---
     //! toggle actions for the dock areas
     DockAreas dock_areas;
 
     /** Layer list widget */
-    QG_LayerWidget* layerWidget;
+    QG_LayerWidget* layerWidget {nullptr};
     /** Block list widget */
-    QG_BlockWidget* blockWidget;
+    QG_BlockWidget* blockWidget {nullptr};
     /** Library browser widget */
-    QG_LibraryWidget* libraryWidget;
+    QG_LibraryWidget* libraryWidget {nullptr};
     /** Command line */
-    QG_CommandWidget* commandWidget;
+    QG_CommandWidget* commandWidget {nullptr};
 
-    LC_PenWizard* pen_wiz;
+    LC_PenWizard* pen_wiz {nullptr};
 
     // --- Statusbar ---
     /** Coordinate widget */
-    QG_CoordinateWidget* coordinateWidget;
+    QG_CoordinateWidget* coordinateWidget {nullptr};
     /** Mouse widget */
-    QG_MouseWidget* mouseWidget;
+    QG_MouseWidget* mouseWidget {nullptr};
     /** Selection Status */
-    QG_SelectionWidget* selectionWidget;
-    QG_ActiveLayerName* m_pActiveLayerName;
-    TwoStackedLabels* grid_status;
+    QG_SelectionWidget* selectionWidget {nullptr};
+    QG_ActiveLayerName* m_pActiveLayerName {nullptr};
+    TwoStackedLabels* grid_status {nullptr};
 
     // --- Menus ---
-    QMenu* windowsMenu;
-    QMenu* scriptMenu;
-    QMenu* helpMenu;
-    QMenu* testMenu;
-    QMenu* file_menu;
+    QMenu* windowsMenu {nullptr};
+    QMenu* scriptMenu {nullptr};
+    QMenu* helpMenu {nullptr};
+    QMenu* testMenu {nullptr};
+    QMenu* file_menu {nullptr};
 
     // --- Toolbars ---
-    QG_SnapToolBar* snapToolBar;
-    QG_PenToolBar* penToolBar; //!< for selecting the current pen
-    QToolBar* optionWidget; //!< for individual tool options
+    QG_SnapToolBar* snapToolBar {nullptr};
+    QG_PenToolBar* penToolBar {nullptr}; //!< for selecting the current pen
+    QToolBar* optionWidget {nullptr}; //!< for individual tool options
 
     // --- Actions ---
-    QAction* previousZoom;
-    QAction* undoButton;
-    QAction* redoButton;
+    QAction* previousZoom {nullptr};
+    QAction* undoButton {nullptr};
+    QAction* redoButton {nullptr};
 
-    QAction* scriptOpenIDE;
-    QAction* scriptRun;
-    QAction* helpAboutApp;
+    QAction* scriptOpenIDE {nullptr};
+    QAction* scriptRun {nullptr};
+    QAction* helpAboutApp {nullptr};
 
     // --- Flags ---
     bool previousZoomEnable{false};
@@ -392,6 +422,9 @@ private:
 
 };
 
+#ifdef _WINDOWS
+extern Q_CORE_EXPORT int qt_ntfs_permission_lookup;
+#endif
 
 #endif
 

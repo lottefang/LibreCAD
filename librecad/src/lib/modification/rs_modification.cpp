@@ -24,6 +24,7 @@
 **
 **********************************************************************/
 #include<cmath>
+#include <QSet>
 #include "rs_modification.h"
 
 #include "rs_arc.h"
@@ -150,29 +151,39 @@ void RS_Modification::revertDirection() {
 
 
 /**
- * Changes the attributes of container sub-entities. Recursive
+ * Changes the attributes of all selected
  */
-bool RS_Modification::changeAttributes(RS_AttributesData& data, RS_EntityContainer* container, std::vector<RS_Entity*> addList) {
+bool RS_Modification::changeAttributes(RS_AttributesData& data)
+{
+    return changeAttributes(data, container);
+}
 
-    RS_DEBUG->print(RS_Debug::D_DEBUGGING, "RS_Modification::changeAttributes");
-
-    if (!container) {
-        RS_DEBUG->print(RS_Debug::D_ERROR, "RS_Modification::changeAttributes: no valid container");
+bool RS_Modification::changeAttributes(
+    RS_AttributesData& data,
+    RS_EntityContainer* cont)
+{
+    if (!cont) {
         return false;
     }
 
-    for(auto e: *container) {
+    LC_UndoSection  undo(document);
+    QList<RS_Entity*> clones;
+    QSet<RS_Block*> blocks;
 
-        if (!e) {
-            RS_DEBUG->print(RS_Debug::D_ERROR, "RS_Modification::changeAttributes: nullptr in container");
-            return false;
+    for (auto en: *cont) {
+        if (!en) continue;
+        if (!en->isSelected()) continue;
+
+        if (data.applyBlockDeep && en->rtti() == RS2::EntityInsert) {
+            RS_Block* bl = static_cast<RS_Insert*>(en)->getBlockForInsert();
+            blocks << bl;
         }
 
-        e->setSelected(false);
-        RS_Pen pen = e->getPen(false);
+        RS_Entity* cl = en->clone();
+        RS_Pen pen = cl->getPen(false);
 
         if (data.changeLayer==true) {
-            e->setLayer(data.layer);
+            cl->setLayer(data.layer);
         }
 
         if (data.changeColor==true) {
@@ -184,95 +195,49 @@ bool RS_Modification::changeAttributes(RS_AttributesData& data, RS_EntityContain
         if (data.changeWidth==true) {
             pen.setWidth(data.pen.getWidth());
         }
-        e->setPen(pen);
+        cl->setPen(pen);
 
-        if (e->isContainer()) {
-            if (e->rtti() == RS2::EntityInsert) {
-                RS_Block* eb = static_cast<RS_Insert*>(e)->getBlockForInsert();
-                changeAttributes(data, (RS_EntityContainer*)eb, addList);
-            } else {
-                changeAttributes(data, (RS_EntityContainer*)e, addList);
-            }
+        if (graphicView) {
+            graphicView->deleteEntity(en);
         }
-        e->update();
+
+        en->setSelected(false);
+        cl->setSelected(false);
+
+        clones << cl;
+
+        if (!graphic) continue;
+
+        en->setUndoState(true);
+        graphic->addUndoable(en);
     }
 
-    RS_DEBUG->print(RS_Debug::D_DEBUGGING, "RS_Modification::changeAttributes: OK");
-    return true;
-}
-
-
-
-/**
- * Changes the attributes of all selected
- */
-bool RS_Modification::changeAttributes(RS_AttributesData& data) {
-
-    RS_DEBUG->print(RS_Debug::D_DEBUGGING, "RS_Modification::changeAttributes");
-
-    if (!container) {
-        RS_DEBUG->print(RS_Debug::D_ERROR, "RS_Modification::changeAttributes: no valid container");
-        return false;
+    for (auto bl: blocks.values()) {
+        for (auto en: *bl) {
+            if (!en) continue;
+            en->setSelected(true);
+        }
+        changeAttributes(data, (RS_EntityContainer*)bl);
     }
 
-    LC_UndoSection  undo(document);
-    std::vector<RS_Entity*> addList;
+    for (auto cl: clones) {
+        cont->addEntity(cl);
 
-    for(auto e: *container) {
-//        for (unsigned i=0; i<container->count(); ++i) {
-//        RS_Entity* e = container->entityAt(i);
-        if (e && e->isSelected()) {
+        if (graphicView) {;
+            graphicView->drawEntity(cl);
+        }
 
-            e->setSelected(false);
-            RS_Pen pen = e->getPen(false);
-
-            if (data.changeLayer==true) {
-                e->setLayer(data.layer);
-            }
-
-            if (data.changeColor==true) {
-                pen.setColor(data.pen.getColor());
-            }
-            if (data.changeLineType==true) {
-                pen.setLineType(data.pen.getLineType());
-            }
-            if (data.changeWidth==true) {
-                pen.setWidth(data.pen.getWidth());
-            }
-            e->setPen(pen);
-
-            if (e->isContainer()) {
-                if (e->rtti() == RS2::EntityInsert) {
-                    RS_Block* eb = static_cast<RS_Insert*>(e)->getBlockForInsert();
-                    changeAttributes(data, (RS_EntityContainer*)eb, addList);
-                } else {
-                    changeAttributes(data, (RS_EntityContainer*)e, addList);
-                }
-            }
-
-            e->update();
-
-            //if (data.useCurrentLayer) {
-            //    ec->setLayerToActive();
-            //}
-            //if (data.useCurrentAttributes) {
-            //    ec->setPenToActive();
-            //}
-            //if (ec->rtti()==RS2::EntityInsert) {
-            //    ((RS_Insert*)ec)->update();
-            //}
-        } else {
-            RS_DEBUG->print(RS_Debug::D_NOTICE, "RS_Modification::changeAttributes: no valid container is selected");
+        if (graphic) {
+            graphic->addUndoable(cl);
         }
     }
 
-    deselectOriginals(true);
-
-    if (graphicView) {
-        graphicView->redraw(RS2::RedrawDrawing);
+    if (graphic) {
+        graphic->updateInserts();
     }
 
-    RS_DEBUG->print(RS_Debug::D_DEBUGGING, "RS_Modification::changeAttributes: OK");
+    cont->calculateBorders();
+
     return true;
 }
 
@@ -509,6 +474,9 @@ void RS_Modification::paste(const RS_PasteData& data, RS_Graphic* source) {
     // default insertion point for container
     RS_Vector ip = data.insertionPoint;
 
+    // remember active layer before inserting absent layers
+    RS_Layer *l = graphic->getActiveLayer();
+
     // insert absent layers from source to graphic
     if (!pasteLayers(source)) {
         RS_DEBUG->print(RS_Debug::D_ERROR, "RS_Modification::paste: unable to copy due to absence of needed layers");
@@ -516,6 +484,7 @@ void RS_Modification::paste(const RS_PasteData& data, RS_Graphic* source) {
     }
 
     // select the same layer in graphic as in source
+    /*
     auto a_layer = source->getActiveLayer();
     if (!a_layer)
     {
@@ -524,6 +493,7 @@ void RS_Modification::paste(const RS_PasteData& data, RS_Graphic* source) {
     }
     QString ln = a_layer->getName();
     RS_Layer* l = graphic->getLayerList()->find(ln);
+    */
     if (!l) {
         RS_DEBUG->print(RS_Debug::D_ERROR, "RS_Modification::paste: unable to select layer to paste in");
         return;
@@ -536,7 +506,7 @@ void RS_Modification::paste(const RS_PasteData& data, RS_Graphic* source) {
 
     // create block to paste entities as a whole
     QString name_old = "paste-block";
-    if (data.blockName != NULL) {
+    if (data.blockName != nullptr) {
         name_old = data.blockName;
     }
     QString name_new = name_old;
@@ -554,11 +524,11 @@ void RS_Modification::paste(const RS_PasteData& data, RS_Graphic* source) {
 
     // create insert object for the paste block
     RS_InsertData di = RS_InsertData(b->getName(), ip, vfactor, data.angle, 1, 1, RS_Vector(0.0,0.0));
-    RS_Insert* i = new RS_Insert(graphic, di);
+    RS_Insert* i = new RS_Insert(document, di);
     i->setLayerToActive();
     i->setPenToActive();
-    i->reparent(graphic);
-    graphic->addEntity(i);
+    i->reparent(document);
+    document->addEntity(i);
 
     // copy sub- blocks, inserts and entities from source to the paste block
     RS_DEBUG->print(RS_Debug::D_DEBUGGING, "RS_Modification::paste: copy content to the paste block");
@@ -593,13 +563,13 @@ void RS_Modification::paste(const RS_PasteData& data, RS_Graphic* source) {
     i->setSelected(false);
 
     // unblock all entities if not pasting as a new block by demand
-    LC_UndoSection undo( document, handleUndo);
+    LC_UndoSection undo(document, handleUndo);
     if (!data.asInsert) {
         // no inserts should be selected except from paste block and insert
-        container->setSelected( false);
+        container->setSelected(false);
         i->setSelected(true);
-        explode( false);
-        graphic->removeEntity(i);
+        explode(false);
+        document->removeEntity(i);
         b->clear();
         // if this call a destructor for the block?
         graphic->removeBlock(b);
@@ -2058,6 +2028,8 @@ void RS_Modification::addNewEntities(std::vector<RS_Entity*>& addList)
         }
     }
 
+    container->calculateBorders();
+
     if (graphicView) {
         graphicView->redraw(RS2::RedrawDrawing);
     }
@@ -3007,6 +2979,56 @@ bool RS_Modification::round(const RS_Vector& coord,
 }
 
 
+/**
+ * Repetitive recursive block of code for the explode() method.
+ */
+static void update_exploded_children_recursively(
+        RS_EntityContainer* ec,
+        RS_Entity* e,
+        RS_Entity* clone,
+        RS2::ResolveLevel rl,
+        bool resolveLayer,
+        bool resolvePen) {
+
+    if (!ec) {
+        return;
+    }
+    if (!e) {
+        return;
+    }
+    if (!clone) {
+        return;
+    }
+
+    if (resolveLayer) {
+        clone->setLayer(ec->getLayer());
+    } else {
+        clone->setLayer(e->getLayer());
+    }
+
+    if (resolvePen) {
+        //clone->setPen(ec->getPen(true));
+        clone->setPen(ec->getPen(false));
+    } else {
+        clone->setPen(e->getPen(false));
+    }
+
+    clone->update();
+
+    if (clone->isContainer()) {
+        // Note: reassigning ec and e here, so keep
+        // that in mind when writing code below this block.
+        ec = (RS_EntityContainer*) clone;
+        for (e = ec->firstEntity(rl); e; e = ec->nextEntity(rl)) {
+            if (e) {
+                // Run the same code for every children recursively
+                update_exploded_children_recursively(ec, clone, e,
+                        rl, resolveLayer, resolvePen);
+            }
+        }
+    }
+}
+
 
 /**
  * Removes the selected entity containers and adds the entities in them as
@@ -3048,7 +3070,7 @@ bool RS_Modification::explode(const bool remove /*= true*/)
                 case RS2::EntityPolyline:
                     rl = RS2::ResolveAll;
                     resolveLayer = true;
-                    resolvePen = false;
+                    resolvePen = true;
                     break;
 
                 case RS2::EntityInsert:
@@ -3083,6 +3105,15 @@ bool RS_Modification::explode(const bool remove /*= true*/)
                         clone->setSelected(false);
                         clone->reparent(container);
 
+                        addList.push_back(clone);
+
+                        // In order to fix bug #819 and escape similar issues,
+                        // we have to update all children of exploded entity,
+                        // even those (below the tree) which are not direct
+                        // subjects to the current explode() call.
+                        update_exploded_children_recursively(ec, e2, clone,
+                                rl, resolveLayer, resolvePen);
+/*
                         if (resolveLayer) {
                             clone->setLayer(ec->getLayer());
                         } else {
@@ -3099,6 +3130,7 @@ bool RS_Modification::explode(const bool remove /*= true*/)
 						addList.push_back(clone);
 
                         clone->update();
+*/
                     }
                 }
             } else {
@@ -3110,6 +3142,7 @@ bool RS_Modification::explode(const bool remove /*= true*/)
     LC_UndoSection undo( document, handleUndo); // bundle remove/add entities in one undoCycle
     deselectOriginals( remove);
     addNewEntities(addList);
+    container->updateInserts();
 
     return true;
 }

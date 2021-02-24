@@ -1993,6 +1993,19 @@ void RS_FilterDXFRW::writeDimstyles(){
     dxfW->writeDimstyle(&dsty);
 }
 
+void RS_FilterDXFRW::writeObjects() {
+    /* PLOTSETTINGS */
+    DRW_PlotSettings ps;
+    QString horizXvert = QString("%1x%2").arg(graphic->getPagesNumHoriz())
+                                         .arg(graphic->getPagesNumVert());
+    ps.plotViewName = horizXvert.toStdString();
+    ps.marginLeft = graphic->getMarginLeft();
+    ps.marginTop = graphic->getMarginTop();
+    ps.marginRight = graphic->getMarginRight();
+    ps.marginBottom = graphic->getMarginBottom();
+    dxfW->writePlotSettings(&ps);
+}
+
 void RS_FilterDXFRW::writeAppId(){
     DRW_AppId ai;
     ai.name ="LibreCad";
@@ -2930,7 +2943,7 @@ void RS_FilterDXFRW::writeImage(RS_Image * i) {
 
 
 /**
- * Writes the atomic entities of the given cotnainer to the file.
+ * Writes the atomic entities of the given container to the file.
  */
 /*void RS_FilterDXFRW::writeAtomicEntities(DL_WriterA& dw, RS_EntityContainer* c,
                                        const DRW_Entity& attrib,
@@ -3152,6 +3165,11 @@ void RS_FilterDXFRW::addComment(const char*) {
     RS_DEBUG->print("RS_FilterDXF::addComment(const char*) not yet implemented.");
 }
 
+void RS_FilterDXFRW::addPlotSettings(const DRW_PlotSettings *data) {
+    graphic->setPagesNum(QString::fromStdString(data->plotViewName));
+    graphic->setMargins(data->marginLeft, data->marginTop,
+                        data->marginRight, data->marginBottom);
+}
 
 /**
  * Converts a line type name (e.g. "CONTINUOUS") into a RS2::LineType
@@ -3821,7 +3839,7 @@ RS2::Unit RS_FilterDXFRW::numberToUnit(int num) {
 
 
 /**
- * Converst a unit enum into a DXF unit number e.g. for INSUNITS.
+ * Converts a unit enum into a DXF unit number e.g. for INSUNITS.
  */
 int RS_FilterDXFRW::unitToNumber(RS2::Unit unit) {
     switch (unit) {
